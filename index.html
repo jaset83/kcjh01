@@ -339,7 +339,7 @@ table.t-table tr:last-child td{border-bottom:none;}
 // ════════════════════════════════════════
 
 // 【步驟】GAS 部署為 Web App 後，將網址貼到這裡
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxhUYiUQuMxFrZMmQzbSuMOg5C-bJFdyMFXY2ayfhiLm-AkEUX20MaIVtpovoaYHKikSA/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz2rJPsRxH2g-0xg89LtK8YBEwXkh4IOCaBcOcGClP_XtwVcxZ-FNLNAqPE6hmhTsfvLg/exec";
 
 // GAS 請求逾時（毫秒）—— 20秒給GAS冷啟動
 const GAS_TIMEOUT_MS = 20000;
@@ -701,6 +701,7 @@ async function doLogin() {
   let res;
   try {
     res = await gasPost({ action: 'login', id, pw });
+    console.log('[DEBUG] login raw res:', JSON.stringify(res));
   } catch(e) {
     res = { ok: false, msg: '連線異常：' + e.message };
   }
@@ -710,30 +711,46 @@ async function doLogin() {
   errEl.style.color = '';
 
   if (res && res.ok) {
-    const isT  = res.data?.role === 'teacher';
-    const rawName = isT ? null : (res.data?.name ?? null);
-    const name = rawName ? rawName.trim() : null;
+    // 防呆：JSONP 有時會多包一層，直接取 res.data 或 res
+    var resData = (res.data && typeof res.data === 'object') ? res.data : res;
+    var isT  = resData.role === 'teacher';
+    var rawName = isT ? null : (resData.name || null);
+    var name = rawName ? rawName.trim() : null;
 
     errEl.style.color = '#9A8874';
     errEl.textContent = '載入成績資料中…';
 
-    // 登入成功後立即拉取全班成績
     gasGet('getAll').then(function(allScores) {
       errEl.textContent = '';
       errEl.style.color = '';
-      initRAW(allScores);
+
+      // 防呆：allScores 可能被多包一層 {ok,data}
+      var scores = allScores;
+      if (scores && typeof scores === 'object' && !Array.isArray(scores)) {
+        // 如果第一個 key 的值是物件（成績資料），直接用
+        // 如果有 ok 欄位，代表是 GAS 回應包裝，取 data
+        if ('ok' in scores) { scores = scores.data || {}; }
+      } else {
+        scores = {};
+      }
+
+      console.log('[DEBUG] isT='+isT+' name='+name+' scores keys='+Object.keys(scores).slice(0,3));
+
+      initRAW(scores);
       saveSession(isT
-        ? { teacher: true,  token: res.data?.token }
-        : { name,           token: res.data?.token });
+        ? { teacher: true,  token: resData.token }
+        : { name: name,     token: resData.token });
       showApp(name, isT);
     }).catch(function(e) {
       errEl.style.color = '';
       errEl.textContent = '成績載入失敗，請重試';
+      console.error('[DEBUG] getAll error:', e);
     });
   } else {
-    const msg = res?.msg || '座號或密碼錯誤';
+    var msg = (res && res.msg) ? res.msg : '座號或密碼錯誤';
     errEl.textContent = msg;
     errEl.style.color = '';
+    console.log('[DEBUG] login fail res=', JSON.stringify(res));
   }
 }
 
