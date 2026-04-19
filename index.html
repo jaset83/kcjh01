@@ -341,47 +341,58 @@ table.t-table tr:last-child td{border-bottom:none;}
 // 【步驟】GAS 部署為 Web App 後，將網址貼到這裡
 const GAS_URL = "https://script.google.com/macros/s/AKfycbz2rJPsRxH2g-0xg89LtK8YBEwXkh4IOCaBcOcGClP_XtwVcxZ-FNLNAqPE6hmhTsfvLg/exec";
 
-// GAS GET 請求（不帶 data payload，用於 getAll / getLatest）
+// GAS 請求逾時（毫秒）—— 20秒給GAS冷啟動
+const GAS_TIMEOUT_MS = 20000;
+
+// ════════════════════════════════════════
+// GAS 通訊層：JSONP（完全繞過 CORS，Safari / iOS / GitHub Pages 均相容）
+// GAS 端 outputResponse 已支援 callback 參數，直接使用
+// ════════════════════════════════════════
+var _jsonpCbIdx = 0;
+
+function jsonpRequest(url) {
+  return new Promise(function(resolve, reject) {
+    var cbName = '__gasCb' + (++_jsonpCbIdx) + '_' + Date.now();
+    var script = document.createElement('script');
+    var timer = setTimeout(function() {
+      cleanup();
+      resolve({ ok: false, msg: '連線逾時（' + (GAS_TIMEOUT_MS/1000) + '秒），GAS 冷啟動中，請再試一次' });
+    }, GAS_TIMEOUT_MS);
+
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cbName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[cbName] = function(data) {
+      cleanup();
+      resolve(data);
+    };
+
+    script.onerror = function() {
+      cleanup();
+      resolve({ ok: false, msg: '連線失敗，請確認網路或稍後再試' });
+    };
+
+    script.src = url + '&callback=' + cbName;
+    document.head.appendChild(script);
+  });
+}
+
+// GAS POST（登入、addScores 等帶 payload 的操作）
+function gasPost(payload) {
+  var url = GAS_URL + '?data=' + encodeURIComponent(JSON.stringify(payload));
+  return jsonpRequest(url);
+}
+
+// GAS GET（getAll / getLatest 等純讀取操作）
 function gasGet(action, params) {
   var url = GAS_URL + '?action=' + action;
   if (params) {
     Object.keys(params).forEach(function(k){ url += '&' + k + '=' + encodeURIComponent(params[k]); });
   }
-  var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  var timer = controller ? setTimeout(function(){ controller.abort(); }, GAS_TIMEOUT_MS) : null;
-  return fetch(url, { method: 'GET', signal: controller ? controller.signal : undefined })
-    .then(function(r){ clearTimeout(timer); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-    .catch(function(e){ clearTimeout(timer); throw e; });
-}
-
-// GAS 請求逾時（毫秒）—— 15秒給GAS冷啟動
-const GAS_TIMEOUT_MS = 15000;
-
-// ════════════════════════════════════════
-// GAS 通訊層：fetch（解決 Artifact / https CSP 封鎖 JSONP 問題）
-// GAS 需設定允許跨來源，回傳 JSON 即可
-// ════════════════════════════════════════
-function gasPost(payload) {
-  var url = GAS_URL + '?data=' + encodeURIComponent(JSON.stringify(payload));
-  var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  var timer = controller ? setTimeout(function(){ controller.abort(); }, GAS_TIMEOUT_MS) : null;
-
-  return fetch(url, {
-    method: 'GET',
-    signal: controller ? controller.signal : undefined,
-  })
-  .then(function(res) {
-    clearTimeout(timer);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  })
-  .catch(function(err) {
-    clearTimeout(timer);
-    if (err.name === 'AbortError') {
-      return { ok: false, msg: '連線逾時（' + (GAS_TIMEOUT_MS/1000) + '秒），GAS 冷啟動中，請再試一次' };
-    }
-    return { ok: false, msg: '連線失敗：' + err.message };
-  });
+  return jsonpRequest(url);
 }
 
 // ════════════════════════════════════════
