@@ -634,7 +634,7 @@ function initRAW(gasScores) {
 // ════════════════════════════════════════
 // STATE
 // ════════════════════════════════════════
-var currentUser=null, isTeacher=false;
+var currentUser=null, isTeacher=false, currentRole='student';
 var radarChart=null, overallChart=null, rankChart=null, distChart=null;
 var subjectCharts={};
 
@@ -713,7 +713,8 @@ async function doLogin() {
   if (res && res.ok) {
     // 防呆：JSONP 有時會多包一層，直接取 res.data 或 res
     var resData = (res.data && typeof res.data === 'object') ? res.data : res;
-    var isT  = resData.role === 'teacher';
+    var role = resData.role || 'student';  // 'teacher' | 'subject_teacher' | 'student'
+    var isT  = (role === 'teacher' || role === 'subject_teacher');
     var rawName = isT ? null : (resData.name || null);
     var name = rawName ? rawName.trim() : null;
 
@@ -738,9 +739,9 @@ async function doLogin() {
 
       initRAW(scores);
       saveSession(isT
-        ? { teacher: true,  token: resData.token }
-        : { name: name,     token: resData.token });
-      showApp(name, isT);
+        ? { teacher: true, role: role, token: resData.token }
+        : { name: name,    token: resData.token });
+      showApp(name, isT, role);
     }).catch(function(e) {
       errEl.style.color = '';
       errEl.textContent = '成績載入失敗，請重試';
@@ -758,20 +759,27 @@ async function doLogin() {
 // ════════════════════════════════════════
 // MAIN SHOW APP
 // ════════════════════════════════════════
-function showApp(name, teacher){
-  currentUser=name; isTeacher=teacher;
+function showApp(name, teacher, role){
+  currentUser=name; isTeacher=teacher; currentRole=role||'student';
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('appScreen').style.display='block';
   destroyAllCharts();
 
   if(teacher){
-    document.getElementById('heroZone').innerHTML=renderTeacherHero();
+    const isHomeroom = (currentRole === 'teacher'); // 導師（戚老師）才有完整權限
+    document.getElementById('heroZone').innerHTML=renderTeacherHero(isHomeroom);
     document.getElementById('predictZoneWrap').innerHTML='';
     document.getElementById('teacherSelector').classList.remove('hidden');
     document.getElementById('studentView').classList.add('hidden');
     document.getElementById('teacherZone').classList.remove('hidden');
+    // CSV 上傳區塊：只有導師可見
+    const csvZone = document.querySelector('.csv-zone');
+    if(csvZone) csvZone.style.display = isHomeroom ? '' : 'none';
+    // CSV 段落標題也隱藏
+    const csvSecHdr = document.querySelector('.csv-zone')?.previousElementSibling;
+    if(csvSecHdr && csvSecHdr.classList.contains('sec-hdr')) csvSecHdr.style.display = isHomeroom ? '' : 'none';
     populateStudentSelect();
-    setTimeout(()=>{renderDistChart();renderClassTrendChart();renderTeacherTable();},50);
+    setTimeout(()=>{renderDistChart();renderClassTrendChart();renderTeacherTable(undefined,undefined,undefined,isHomeroom);},50);
   } else {
     document.getElementById('teacherSelector').classList.add('hidden');
     document.getElementById('studentView').classList.remove('hidden');
@@ -875,17 +883,23 @@ function renderHero(name,d){
   },50);
 }
 
-function renderTeacherHero(){
+function renderTeacherHero(isHomeroom){
   const names=Object.keys(SD);
   const warnCount=names.filter(n=>SD[n].warn).length;
-  return`<div class="hero-tag">Teacher Dashboard</div>
-  <div class="hero-name">戚老師 · 教師總覽</div>
-  <div class="hero-meta">201 班 ${names.length} 位學生 ｜ 113-1-1 至 114-2-1</div>
+  const heroTag = isHomeroom
+    ? `<div class="hero-tag">Homeroom Teacher Dashboard</div>
+       <div class="hero-name">戚老師 · 導師總覽</div>
+       <div class="hero-meta">201 班 ${names.length} 位學生 ｜ 113-1-1 至 114-2-1</div>`
+    : `<div class="hero-tag">Subject Teacher Dashboard</div>
+       <div class="hero-name">任課老師 · 科任總覽</div>
+       <div class="hero-meta">201 班 ${names.length} 位學生 ｜ 唯讀模式</div>`;
+  return`${heroTag}
   <div class="hero-school-box" style="margin-top:12px">
-    <div class="hero-school-icon">📊</div>
+    <div class="hero-school-icon">${isHomeroom?'📊':'👁️'}</div>
     <div style="font-size:12px;line-height:1.8">
       全班成績總覽請見下方<br>
       ${warnCount>0?`<b style="color:#FFCCC8">📉 ${warnCount} 位學生有退步警示</b>`:'全班近況良好 ✓'}
+      ${!isHomeroom?'<br><span style="opacity:.7;font-size:10px">（唯讀·無法上傳成績）</span>':''}
     </div>
   </div>`;
 }
@@ -1558,6 +1572,11 @@ function switchStudent(){
   document.getElementById('studentView').classList.remove('hidden');
   renderStudentView(name);
   document.getElementById('teacherZone').classList.remove('hidden');
+  const isHomeroom = (currentRole === 'teacher');
+  const csvZone = document.querySelector('.csv-zone');
+  if(csvZone) csvZone.style.display = isHomeroom ? '' : 'none';
+  const csvSecHdr = document.querySelector('.csv-zone')?.previousElementSibling;
+  if(csvSecHdr && csvSecHdr.classList.contains('sec-hdr')) csvSecHdr.style.display = isHomeroom ? '' : 'none';
   setTimeout(()=>{renderDistChart();renderClassTrendChart();},100);
 }
 
