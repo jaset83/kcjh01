@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GAS 診斷工具</title>
+<style>
+body{font-family:monospace;padding:20px;background:#1a1a1a;color:#eee;font-size:13px;}
+h2{color:#FFE4B5;margin-bottom:16px;}
+button{background:#8B4513;color:#fff;border:none;padding:12px 20px;border-radius:8px;font-size:14px;cursor:pointer;margin:6px 4px;display:block;width:100%;}
+.result{background:#2a2a2a;border:1px solid #444;border-radius:8px;padding:16px;margin-top:16px;white-space:pre-wrap;word-break:break-all;min-height:60px;color:#A8F5C0;}
+.err{color:#FFCCC8;}
+.label{color:#9A8874;font-size:11px;margin-bottom:4px;}
+input{width:100%;padding:10px;border-radius:8px;border:1px solid #444;background:#2a2a2a;color:#eee;font-size:14px;margin-bottom:10px;box-sizing:border-box;}
+</style>
+</head>
+<body>
+<h2>🔧 GAS 連線診斷</h2>
+
+<div class="label">GAS 網址（可修改）</div>
+<input id="gasUrl" value="https://script.google.com/macros/s/AKfycbz2rJPsRxH2g-0xg89LtK8YBEwXkh4IOCaBcOcGClP_XtwVcxZ-FNLNAqPE6hmhTsfvLg/exec">
+
+<button onclick="testPing()">① 測試 Ping（最簡單）</button>
+<button onclick="testFetch()">② 用 fetch 測試（看原始回應）</button>
+<button onclick="testJsonp()">③ 用 JSONP 測試</button>
+<button onclick="testLogin()">④ 測試登入（需填帳密）</button>
+
+<div class="label" style="margin-top:12px">帳號</div>
+<input id="tid" placeholder="座號或 teacher">
+<div class="label">密碼</div>
+<input id="tpw" type="password" placeholder="密碼">
+
+<div class="label" style="margin-top:12px">結果：</div>
+<div class="result" id="result">等待測試…</div>
+
+<script>
+var _idx = 0;
+function getUrl(){ return document.getElementById('gasUrl').value.trim(); }
+function show(msg, isErr){
+  var el = document.getElementById('result');
+  el.textContent = msg;
+  el.className = 'result' + (isErr ? ' err' : '');
+}
+
+function testPing(){
+  show('測試中…');
+  // 直接用 fetch 看原始 text
+  fetch(getUrl() + '?action=ping', {method:'GET'})
+    .then(function(r){ return r.text(); })
+    .then(function(t){ show('fetch ping 成功：\n' + t); })
+    .catch(function(e){ show('fetch ping 失敗：' + e.message + '\n\n→ 試試按鈕②', true); });
+}
+
+function testFetch(){
+  show('用 fetch 測試中，會有 CORS 錯誤很正常…');
+  var url = getUrl() + '?action=ping&callback=testCb';
+  fetch(url)
+    .then(function(r){
+      show('HTTP 狀態：' + r.status + '\nContent-Type：' + r.headers.get('content-type'));
+      return r.text();
+    })
+    .then(function(t){ show(document.getElementById('result').textContent + '\n\n回應內容：\n' + t.substring(0,500)); })
+    .catch(function(e){ show('CORS 封鎖（這是正常的）：' + e.message + '\n\n→ 請按按鈕③測試 JSONP', true); });
+}
+
+function testJsonp(){
+  show('JSONP 測試中（最多等 15 秒）…');
+  var cbName = '__testCb' + (++_idx);
+  var timer = setTimeout(function(){
+    delete window[cbName];
+    show('JSONP 逾時（15秒）\n\nGAS 可能：\n1. 部署設定有問題\n2. 需要重新授權\n3. 正在冷啟動，請再試一次', true);
+  }, 15000);
+  
+  window[cbName] = function(data){
+    clearTimeout(timer);
+    delete window[cbName];
+    show('✅ JSONP 成功！\n\nGAS 回傳：\n' + JSON.stringify(data, null, 2));
+  };
+  
+  var s = document.createElement('script');
+  s.onerror = function(){
+    clearTimeout(timer);
+    delete window[cbName];
+    show('❌ Script 載入失敗\n\nGAS 回傳的不是合法 JS\n\n常見原因：\n1. 部署「誰可以存取」不是「所有人」\n2. 需要重新授權（Google 帳號要求登入）\n3. GAS 網址已過期，需重新部署', true);
+  };
+  s.src = getUrl() + '?action=ping&callback=' + cbName;
+  document.head.appendChild(s);
+}
+
+function testLogin(){
+  var id = document.getElementById('tid').value.trim();
+  var pw = document.getElementById('tpw').value.trim();
+  if(!id||!pw){ show('請填寫帳號和密碼', true); return; }
+  show('登入測試中…');
+  var cbName = '__loginCb' + (++_idx);
+  var payload = JSON.stringify({action:'login', id:id, pw:pw});
+  var url = getUrl() + '?data=' + encodeURIComponent(payload);
+  
+  var timer = setTimeout(function(){
+    delete window[cbName];
+    show('登入逾時（15秒）', true);
+  }, 15000);
+  
+  window[cbName] = function(data){
+    clearTimeout(timer);
+    delete window[cbName];
+    show('GAS 登入回應：\n' + JSON.stringify(data, null, 2));
+  };
+  
+  var s = document.createElement('script');
+  s.onerror = function(){
+    clearTimeout(timer);
+    delete window[cbName];
+    show('❌ 登入 Script 載入失敗\n（同 JSONP 問題）', true);
+  };
+  s.src = url + '&callback=' + cbName;
+  document.head.appendChild(s);
+}
+</script>
+</body>
+</html>
