@@ -273,7 +273,7 @@ body{position:relative;}
 <div class="sec-hdr"><h2>學習診斷與建議</h2></div>
 <div class="diag-wrap" id="diagWrap"></div>
 
-<div class="sec-hdr"><h2>114-2-1 各科 Z 分數</h2></div>
+<div class="sec-hdr"><h2>114-2-2 各科 Z 分數</h2></div>
 <div class="acc-wrap" id="accWrap"></div>
 
 <div class="sec-hdr"><h2>總體戰力趨勢</h2></div>
@@ -456,7 +456,7 @@ var RAW = {};  // 登入後由 initRAW() 填入（GAS scores + META 合併）
 // ════════════════════════════════════════
 // NEW: SUBJECT SORTING MAPPING
 // ════════════════════════════════════════
-const EXAMS = ["113-1-1","113-1-2","113-1-3","113-2-1","113-2-2","113-2-3","114-1-1","114-1-2","114-1-3","114-2-1"];
+const EXAMS = ["113-1-1","113-1-2","113-1-3","113-2-1","113-2-2","113-2-3","114-1-1","114-1-2","114-1-3","114-2-1","114-2-2"];
 
 // ⭐️ 核心修改：介面顯示順序改為「國、數、英、社、自」
 const SUBJS = ["國文","數學","英語","社會","自然"];
@@ -480,6 +480,7 @@ const CLASS_STATS = {
   "114-1-2":{means:[73.47,62.40,52.23,57.27,66.53],highs:[85.07,87.33,72.73,74.20,84.80]},
   "114-1-3":{means:[74.27,67.33,58.60,57.47,65.53],highs:[87.47,89.20,82.00,76.13,83.87]},
   "114-2-1":{means:[73.63,66.13,60.17,62.33,69.17],highs:[85.60,92.67,82.67,80.33,88.27]},
+  "114-2-2":{means:[82.23,65.30,60.07,67.77,66.80],highs:[94.67,89.20,85.13,88.00,84.00]},
 };
 
 const SCHOOL_STATS = {
@@ -493,6 +494,7 @@ const SCHOOL_STATS = {
   "114-1-2":{means:[64.3,59.4,46.3,52.9,62.7,65.1],stds:[16.2,23.4,24.9,19.5,15.6,21.9]},
   "114-1-3":{means:[66.2,64.0,52.6,58.7,64.0,75.2],stds:[16.0,22.4,25.9,18.8,15.6,18.9]},
   "114-2-1":{means:[66.9,66.2,59.2,61.2,67.6,68.8],stds:[17.5,23.1,25.1,20.0,16.3,21.8]},
+  "114-2-2":{means:[69.2,60.1,54.2,60.6,64.0,66.4],stds:[21.0,28.0,29.4,24.8,22.4,22.4]},
 };
 
 function examWeight(eid){return eid.startsWith("114-2")? 1.5 : 1.0;}
@@ -850,7 +852,7 @@ function renderHero(name,d){
   const exemptNote = d.isExempt?`<div class="exempt-note">⚠️ 班排名僅供參考，不參與班級評比</div>`:"";
   const warnBadge = d.warn?`<div class="warn-badge">📉 警示：近期有科目 Z 分下滑 &gt;0.5</div>`:"";
   const trendClass = d.trend.includes("↗")?"trend-up":d.trend.includes("↘")?"trend-dn":"trend-fl";
-  const latest = RAW[name].scores["114-2-1"];
+  const latest = RAW[name].scores["114-2-2"];
   const hasSchoolRank = latest && latest[7];
   const latestGrades = d.grades;
 
@@ -859,7 +861,7 @@ function renderHero(name,d){
     <div class="hero-name">${name}</div>
     <div class="hero-meta">
       201 班 ｜ 座號 ${d.seat} ｜ ${d.g}生<br>
-      113-1-1 至 114-2-1 共 ${Object.keys(RAW[name].scores).length} 次段考
+      113-1-1 至 114-2-2 共 ${Object.keys(RAW[name].scores).length} 次段考
       ${RAW[name].cls?'<br><b>'+RAW[name].cls+'</b>':''}
     </div>
     ${exemptNote}
@@ -907,7 +909,7 @@ function renderTeacherHero(isHomeroom){
   const heroTag = isHomeroom
     ? `<div class="hero-tag">Homeroom Teacher Dashboard</div>
        <div class="hero-name">戚老師 · 導師總覽</div>
-       <div class="hero-meta">201 班 ${names.length} 位學生 ｜ 113-1-1 至 114-2-1</div>`
+       <div class="hero-meta">201 班 ${names.length} 位學生 ｜ 113-1-1 至 114-2-2</div>`
     : `<div class="hero-tag">Subject Teacher Dashboard</div>
        <div class="hero-name">任課老師 · 科任總覽</div>
        <div class="hero-meta">201 班 ${names.length} 位學生 ｜ 唯讀模式</div>`;
@@ -1114,7 +1116,7 @@ function renderSchoolPrediction(totalPts, totalSum, name) {
 // LATEST SCORES
 // ════════════════════════════════════════
 function renderLatestScores(name,d){
-  const LATEST = "114-2-1";
+  const LATEST = "114-2-2";
   const sc = RAW[name].scores[LATEST];
   const wrap = document.getElementById('latestScoreWrap');
   if(!sc){wrap.innerHTML='<div style="padding:16px;color:var(--muted);font-size:12px">尚無最新段考資料</div>';return;}
@@ -1162,7 +1164,7 @@ function renderLatestScores(name,d){
   wrap.innerHTML=`
   <div id="ls1" class="acc-hdr acc-open" onclick="toggleAcc('ls1')">
     <div class="acc-hdr-left">
-      <h3>114-2-1 最新段考成績</h3>
+      <h3>114-2-2 最新段考成績</h3>
       <p>原始分數與班級對比</p>
     </div>
     <div class="acc-arrow">▾</div>
@@ -1338,7 +1340,7 @@ function renderDiag(name,d){
 // ════════════════════════════════════════
 function renderZAccordion(name,d){
   const wrap=document.getElementById('accWrap');
-  const LATEST="114-2-1"; const PREV="114-1-3";
+  const LATEST="114-2-2"; const PREV="114-2-1";
   const li=EXAMS.indexOf(LATEST); const pi=EXAMS.indexOf(PREV);
   const zLast=d.series.map(s=>s[li]);
   const zPrev=d.series.map(s=>s[pi]);
@@ -1360,7 +1362,7 @@ function renderZAccordion(name,d){
   
   wrap.innerHTML=`
   <div id="acc1" class="acc-hdr acc-open" onclick="toggleAcc('acc1')">
-    <div class="acc-hdr-left"><h3>114-2-1 各科 Z 分數</h3><p>↑進步 ↓退步（與上次比較）</p></div>
+    <div class="acc-hdr-left"><h3>114-2-2 各科 Z 分數</h3><p>↑進步 ↓退步（與上次比較）</p></div>
     <div class="acc-arrow">▾</div>
   </div>
   <div class="acc-body" style="max-height:800px"><div class="acc-inner">
@@ -1632,7 +1634,7 @@ function renderTeacherTable(sortKey,sortDir,filter){
   
   const sk=_sortKey, sd=_sortDir;
   const tbody=rows.map(r=>{
-    const LATEST="114-2-1"; const latestIdx=EXAMS.indexOf(LATEST);
+    const LATEST="114-2-2"; const latestIdx=EXAMS.indexOf(LATEST);
     const latestG=r.latestGrades||r.grades;
     const gcls=latestG.map(g=>g?`<span class="grade-pill ${gradeClass(g)}" style="font-size:9px">${g}</span>`:'—').join(' ');
     // 積分積點與等級一致，皆使用當次Z（latestScore/latestPts）
@@ -1707,7 +1709,7 @@ function parseAndApplyCSV(text){
     const valid=[newScores[0],newScores[1],newScores[2],newScores[3],newScores[4]].filter(v=>v!==null);
     newScores[6]=valid.length?+(valid.reduce((a,b)=>a+b,0)/valid.length).toFixed(2):0;
     const key='csv_override_'+name;
-    localStorage.setItem(key,JSON.stringify({exam:'114-2-1',scores:newScores}));
+    localStorage.setItem(key,JSON.stringify({exam:'114-2-2',scores:newScores}));
     updated++;
   }
   document.getElementById('csvStatus').textContent=`✅ 已更新 ${updated} 位學生資料（本次工作階段有效）`;
