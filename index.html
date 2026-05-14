@@ -510,18 +510,31 @@ function computeSubjZ(name, subj){
     const sc = data.scores[eid];
     if(!sc) return null;
     const ss = SCHOOL_STATS[eid];
+    if(!ss) return null; // 年級統計尚未填入，跳過此考次
     let raw, mean, std;
-    if(origIdx===1){ // 英文特例計算
-      raw = sc[1]*0.8 + sc[5]*0.2;
-      mean = ss.means[1]*0.8 + ss.means[5]*0.2;
-      std = Math.sqrt(Math.pow(ss.stds[1]*0.8,2)+Math.pow(ss.stds[5]*0.2,2));
+    if(origIdx===1){ // 英文特例計算（英聽缺考時退化為純英文）
+      const eng = Number(sc[1])||0;
+      const listen = (sc[5]!==null && sc[5]!=='' && !isNaN(Number(sc[5]))) ? Number(sc[5]) : null;
+      if(listen !== null){
+        raw  = eng*0.8 + listen*0.2;
+        mean = ss.means[1]*0.8 + ss.means[5]*0.2;
+        std  = Math.sqrt(Math.pow(ss.stds[1]*0.8,2)+Math.pow(ss.stds[5]*0.2,2));
+      } else {
+        // 英聽缺考：只用英文閱讀計算
+        raw  = eng;
+        mean = ss.means[1];
+        std  = ss.stds[1];
+      }
     } else {
-      raw = sc[origIdx];
+      raw = Number(sc[origIdx]);
+      if(isNaN(raw)) return null;
       mean = ss.means[origIdx];
       std = ss.stds[origIdx];
     }
     if(!std||std===0) return 0;
-    return +((raw-mean)/std).toFixed(3);
+    const z = (raw-mean)/std;
+    if(isNaN(z)) return null;
+    return +z.toFixed(3);
   });
 }
 
